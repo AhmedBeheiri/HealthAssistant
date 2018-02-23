@@ -1,13 +1,31 @@
 package com.apps.ahmed_beheiri.healthassistant.UI
 
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothSocket
+import android.content.DialogInterface
+import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Message
 import android.support.design.widget.AppBarLayout
+import android.support.v7.app.AlertDialog
+import android.util.Log
 import android.view.View
+import android.widget.ArrayAdapter
+import android.widget.Toast
 import butterknife.BindView
 import butterknife.ButterKnife
+import com.apps.ahmed_beheiri.healthassistant.Model.Contract
 import com.apps.ahmed_beheiri.healthassistant.R
 import kotlinx.android.synthetic.main.activity_profile.*
+import kotlinx.android.synthetic.main.content_profile.*
+import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
+import java.util.*
 
 class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener {
     @BindView(R.id.toolbar_header_view)
@@ -16,21 +34,182 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
     @BindView(R.id.float_header_view)
      protected lateinit var floatHeaderView: HeaderView
 
-    private var isHideToolbarView:Boolean=false
+    internal lateinit var bluetoothin: Handler
+    internal val handlerstate = 0
+    private lateinit var adapter: BluetoothAdapter
+    private var socket: BluetoothSocket? = null
+    private val stringBuilder = StringBuilder()
+    private lateinit var connectedThread: ConnectedThread
+    private val BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
+    private var address: String? = null
 
+
+    private var isHideToolbarView:Boolean=false
+    @SuppressLint("HandlerLeak")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
         ButterKnife.bind(this)
 
-
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowTitleEnabled(false)
         initUi()
+
+        bluetoothin = object : Handler() {
+            override fun handleMessage(msg: Message) {
+                if (msg.what == handlerstate) {                                     //if message is what we want
+                    val readMessage = msg.obj as String
+                    // msg.arg1 = bytes from connect thread
+                    Log.i("message", msg.arg1.toString())
+                    Log.i("message", msg.obj.toString())
+                    stringBuilder.append(readMessage)                                      //keep appending to string until ~
+                    val endOfLineIndex = stringBuilder.indexOf("~")                    // determine the end-of-line
+                    if (endOfLineIndex > 0) {                                           // make sure there data before ~
+                        var dataInPrint = stringBuilder.substring(0, endOfLineIndex)    // extract string
+                        //txtString.setText("Data Received = " + dataInPrint);
+                        val dataLength = dataInPrint.length                          //get length of data received
+                        // txtStringLength.setText("String Length = " + String.valueOf(dataLength));
+
+                        if (stringBuilder[0] == '#')
+                        //if it starts with # we know it is what we are looking for
+                        {
+                            val sensor0 = stringBuilder.substring(1, endOfLineIndex)             //get sensor value from string between indices 1-5
+                            //String sensor1 = recDataString.substring(6, 10);            //same again...
+                            //String sensor2 = recDataString.substring(11, 15);
+                            //String sensor3 = recDataString.substring(16, 20);
+
+                            hearttextView.text = sensor0+" BPM"
+                            //update the textviews with sensor values
+                        }
+                        stringBuilder.delete(0, stringBuilder.length)                    //clear all string data
+                        // strIncom =" ";
+                        dataInPrint = " "
+                    }
+                }
+            }
+        }
+        adapter = BluetoothAdapter.getDefaultAdapter()
+        checkBTState()
+
+
+
+
+
+
     }
 
-    private fun initUi() {
+    @Throws(IOException::class)
+    private fun createBluetoothSocket(device: BluetoothDevice): BluetoothSocket {
+
+        return device.createRfcommSocketToServiceRecord(BTMODULEUUID)
+        //creates secure outgoing connecetion with BT device using UUID
+    }
+
+
+    override fun onResume() {
+        super.onResume()
+
+        val intent = intent
+
+        //Get the MAC address from the DeviceListActivty via EXTRA
+        address = intent.getStringExtra(Contract.EXTRA_DEVICE_ADDRESS)
+
+        //create device and set the MAC address
+        val device = adapter.getRemoteDevice(address)
+
+        try {
+            socket = createBluetoothSocket(device)
+        } catch (e: IOException) {
+            Toast.makeText(baseContext, "Socket creation failed", Toast.LENGTH_LONG).show()
+        }
+
+        // Establish the Bluetooth socket connection.
+        try {
+            socket?.connect()
+        } catch (e: IOException) {
+            try {
+                socket?.close()
+            } catch (e2: IOException) {
+                //insert code to deal with this
+            }
+
+        }
+
+        connectedThread = ConnectedThread(socket)
+        connectedThread.start()
+
+
+    }
+
+
+    override fun onPause() {
+        super.onPause()
+        try {
+            //Don't leave Bluetooth sockets open when leaving activity
+            socket?.close()
+        } catch (e2: IOException) {
+            //insert code to deal with this
+        }
+
+    }
+
+
+    private fun checkBTState() {
+
+        if (adapter == null) {
+            Toast.makeText(baseContext, "Device does not support bluetooth", Toast.LENGTH_LONG).show()
+        } else {
+            if (adapter.isEnabled()) {
+            } else {
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                startActivityForResult(enableBtIntent, 1)
+            }
+        }
+
+    }
+
+
+    private inner class ConnectedThread//creation of the connect thread
+    (socket: BluetoothSocket?) : Thread() {
+        private val mmInStream: InputStream?
+        private val mmOutStream: OutputStream?
+
+        init {
+            var tmpIn: InputStream? = null
+            var tmpOut: OutputStream? = null
+
+            try {
+                //Create I/O streams for connection
+                tmpIn = socket?.inputStream
+                tmpOut = socket?.outputStream
+            } catch (e: IOException) {
+            }
+
+            mmInStream = tmpIn
+            mmOutStream = tmpOut
+        }
+
+        override fun run() {
+            val buffer = ByteArray(256)
+            var bytes: Int
+
+            // Keep looping to listen for received messages
+            while (true) {
+                try {
+                    bytes = mmInStream!!.read(buffer)            //read bytes from input buffer
+                    val readMessage = String(buffer, 0, bytes)
+                    // Send the obtained bytes to the UI Activity via handler
+                    bluetoothin.obtainMessage(handlerstate, bytes, -1, readMessage).sendToTarget()
+                } catch (e: IOException) {
+                    break
+                }
+
+            }
+        }
+    }
+
+private fun initUi() {
         appbar.addOnOffsetChangedListener(this)
 
         toolbarHeaderView.bindTo("User Page", "Followrs : 3")
