@@ -1,12 +1,11 @@
 package com.apps.ahmed_beheiri.healthassistant.UI
 
+import android.content.Intent
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.View
-import android.view.View.GONE
-import android.view.View.VISIBLE
 import com.apps.ahmed_beheiri.healthassistant.R
 import com.google.firebase.auth.FirebaseAuth
 import com.truizlop.fabreveallayout.FABRevealLayout
@@ -28,7 +27,8 @@ class MainActivity : AppCompatActivity() {
         mAuth= FirebaseAuth.getInstance()
         cancel.setOnClickListener { prepareBackTransation(fab_reveal_layout) }
         signInButton.setOnClickListener{
-
+            var intent:Intent= Intent(this@MainActivity,ProfileActivity::class.java)
+            startActivity(intent)
         }
 
 
