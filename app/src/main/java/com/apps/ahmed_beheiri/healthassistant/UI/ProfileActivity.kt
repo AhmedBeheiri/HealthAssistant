@@ -64,7 +64,10 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
                     Log.i("message", msg.arg1.toString())
                     Log.i("message", msg.obj.toString())
                     stringBuilder.append(readMessage)                                      //keep appending to string until ~
-                    val endOfLineIndex = stringBuilder.indexOf("~")                    // determine the end-of-line
+                    val endOfLineIndex = stringBuilder.indexOf("~") // determine the end-of-line
+                    val endoffirstsensor=stringBuilder.indexOf("!")
+                    val endofsecondsensor=stringBuilder.indexOf("$")
+                    val endofthirdsensor=stringBuilder.indexOf("&")
                     if (endOfLineIndex > 0) {                                           // make sure there data before ~
                         var dataInPrint = stringBuilder.substring(0, endOfLineIndex)    // extract string
                         //txtString.setText("Data Received = " + dataInPrint);
@@ -74,12 +77,55 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
                         if (stringBuilder[0] == '#')
                         //if it starts with # we know it is what we are looking for
                         {
-                            val sensor0 = stringBuilder.substring(1, endOfLineIndex)             //get sensor value from string between indices 1-5
-                            //String sensor1 = recDataString.substring(6, 10);            //same again...
-                            //String sensor2 = recDataString.substring(11, 15);
-                            //String sensor3 = recDataString.substring(16, 20);
 
-                            hearttextView.text = sensor0+" BPM"
+
+
+                                var sensor0 = stringBuilder.substring(1, endoffirstsensor)             //get sensor value from string between indices 1-5
+                                var sensor1 = stringBuilder.substring(endoffirstsensor+1, endofsecondsensor) //same again...
+                                var value=sensor1.toInt()
+                                var sensor2=stringBuilder.substring(endofsecondsensor+1,endofthirdsensor)
+
+                            if(stringBuilder[1]=='0'){
+                                if(value==0){
+
+                                valuetextView.text="50% - 70%"
+                                    status.text="Happy"
+                                    faceimageView.setImageDrawable(resources.getDrawable(R.drawable.happy))
+
+
+                                }else{
+
+                                    valuetextView.text="over 80%"
+                                    status.text="angry"
+                                    faceimageView.setImageDrawable(resources.getDrawable(R.drawable.angry))
+
+                                }
+                                temptextView.text=sensor2 +" C"
+
+                            }else {
+
+                                //String sensor2 = recDataString.substring(11, 15);
+                                //String sensor3 = recDataString.substring(16, 20);
+                                hearttextView.text = sensor0 + " BPM"
+                                if(value==0){
+
+                                    valuetextView.text="50% - 70%"
+                                    status.text="Happy"
+                                    faceimageView.setImageDrawable(resources.getDrawable(R.drawable.happy))
+
+
+                                }else{
+
+                                    valuetextView.text="over 80%"
+                                    status.text="angry"
+                                    faceimageView.setImageDrawable(resources.getDrawable(R.drawable.angry))
+
+                                }
+                                temptextView.text = sensor2 + " C"
+                            }
+
+
+
                             //update the textviews with sensor values
                         }
                         stringBuilder.delete(0, stringBuilder.length)                    //clear all string data
@@ -229,4 +275,5 @@ private fun initUi() {
             isHideToolbarView = !isHideToolbarView
         }
     }
+
 }

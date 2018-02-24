@@ -16,14 +16,17 @@
         android:theme="@style/AppTheme">
         <activity android:name=".UI.MainActivity" />
         <activity android:name=".UI.SplashActivity">
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
         </activity>
         <activity android:name=".UI.ProfileActivity"></activity>
-        <activity android:name=".UI.TransactionActivity"></activity>
+        <activity android:name=".UI.TransactionActivity">
+        </activity>
     </application>
 
 </manifest>
