@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity,"Please enter E-mail and password and pick an image to signup",Toast.LENGTH_LONG).show()
 
             }else{
-                signUp(signupemail.text.toString(),passsignup.text.toString(),imageuri.text.toString())
+                signUp(signupemail.text.toString().trim(),passsignup.text.toString().trim(),imageuri.text.toString().trim())
             }
         }
 
@@ -77,21 +77,23 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        if(mAuth.currentUser!=null){
-            val currentuser= mAuth.currentUser
-            databaseref=database.getReference(currentuser?.uid)
-            databaseref.addValueEventListener(object : ValueEventListener {
-                override fun onDataChange(dataSnapshot: DataSnapshot) {
-                    var myuser:User= dataSnapshot.value as User
-                    updateUI(myuser)
-                }
+        if(mAuth.currentUser!=null) {
+            val currentuser = mAuth.currentUser
+            databaseref = database.getReference("users").child(currentuser?.uid)
+                databaseref.addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(dataSnapshot: DataSnapshot) {
+                        if (dataSnapshot.value!=null) {
+                            var myuser: User = dataSnapshot.value as User
+                            updateUI(myuser)
+                        }
+                    }
 
-                override fun onCancelled(error: DatabaseError) {
-                    // Failed to read value
-                    Log.w("Ch3", "Failed to read value.", error.toException())
-                }
-            })
-        }
+                    override fun onCancelled(error: DatabaseError) {
+                        // Failed to read value
+                        Log.w("Ch3", "Failed to read value.", error.toException())
+                    }
+                })
+            }
     }
 
     private fun configureFabreveal(fabRevealLayout: FABRevealLayout){
@@ -119,8 +121,8 @@ class MainActivity : AppCompatActivity() {
                     if (task.isSuccessful) {
                         // Sign in success, update UI with the signed-in user's information
                         val user = mAuth.currentUser
-                        databaseref=database.getReference(user?.uid)
-                        databaseref.addValueEventListener(object : ValueEventListener {
+                        databaseref=database.getReference("users").child(user?.uid)
+                        databaseref.addListenerForSingleValueEvent(object : ValueEventListener {
                             override fun onDataChange(dataSnapshot: DataSnapshot) {
                                 var myuser:User= dataSnapshot.value as User
                                 updateUI(myuser)
@@ -152,9 +154,9 @@ class MainActivity : AppCompatActivity() {
                         // Sign in success, update UI with the signed-in user's information
 
                         var user = mAuth.currentUser
-                        databaseref=database.getReference(user?.uid)
-                        var myuser:User=User(email,pass,imageuri)
-                        databaseref.setValue(user)
+                        databaseref=database.getReference("users")
+                        var myuser=User(email,imageuri,"Ahmed")
+                        databaseref.child(user?.uid).setValue(myuser)
 
                         updateUI(myuser)
                     } else {
@@ -174,7 +176,7 @@ class MainActivity : AppCompatActivity() {
         if (user!=null) {
             var user1:User=user
             var i: Intent = Intent(this@MainActivity, TransactionActivity::class.java)
-            i.putExtra(Contract.EXTRA_USER_VALUE1,user1)
+           // i.putExtra(Contract.EXTRA_USER_VALUE1,user1)
             startActivity(i)
         }
 

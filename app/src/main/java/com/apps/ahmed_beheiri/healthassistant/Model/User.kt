@@ -9,7 +9,10 @@ import kotlinx.android.parcel.Parcelize
  */
 @SuppressLint("ParcelCreator")
 @Parcelize
-data class User(var email:String,var imageuri:String,var username:String): Parcelable {
-    constructor(email:String, imageuri:String, username:String,followers :ArrayList<User>) : this(email,imageuri, username)
+data class User( var email:String, var imageuri:String, var username:String): Parcelable {
+
+    constructor(email:String, imageuri:String, username:String,followers :ArrayList<User>) : this(email,imageuri,username)
+    constructor():this(email="",imageuri="", username = "")
+
 
 }
