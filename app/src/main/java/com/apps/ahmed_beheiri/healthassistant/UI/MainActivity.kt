@@ -2,6 +2,8 @@ package com.apps.ahmed_beheiri.healthassistant.UI
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Bitmap
+import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -9,29 +11,25 @@ import android.util.Log
 import android.view.View
 import com.apps.ahmed_beheiri.healthassistant.R
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.auth.FirebaseUser
 import com.truizlop.fabreveallayout.FABRevealLayout
 import com.truizlop.fabreveallayout.OnRevealChangeListener
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.content_login.*
 import kotlinx.android.synthetic.main.content_signup.*
 import android.widget.Toast
-import com.google.firebase.auth.AuthResult
-import com.google.android.gms.tasks.Task
-import android.support.annotation.NonNull
 import com.apps.ahmed_beheiri.healthassistant.Model.Contract
 import com.apps.ahmed_beheiri.healthassistant.Model.User
-import com.google.android.gms.tasks.OnCompleteListener
 import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
-
-
-
-
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import com.google.firebase.storage.UploadTask
+import java.io.ByteArrayOutputStream
+import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
@@ -39,6 +37,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var mAuth:FirebaseAuth
     lateinit var databaseref:DatabaseReference
     lateinit var database:FirebaseDatabase
+    lateinit var storage: FirebaseStorage
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         mAuth= FirebaseAuth.getInstance()
 
        database = FirebaseDatabase.getInstance()
+        storage= FirebaseStorage.getInstance()
 
 
         cancel.setOnClickListener { prepareBackTransation(fab_reveal_layout) }
@@ -83,8 +83,8 @@ class MainActivity : AppCompatActivity() {
                 databaseref.addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(dataSnapshot: DataSnapshot) {
                         if (dataSnapshot.value!=null) {
-                            var myuser: User = dataSnapshot.value as User
-                            updateUI(myuser)
+
+                            updateUI(currentuser?.uid)
                         }
                     }
 
@@ -123,16 +123,18 @@ class MainActivity : AppCompatActivity() {
                         val user = mAuth.currentUser
                         databaseref=database.getReference("users").child(user?.uid)
                         databaseref.addListenerForSingleValueEvent(object : ValueEventListener {
-                            override fun onDataChange(dataSnapshot: DataSnapshot) {
-                                var myuser:User= dataSnapshot.value as User
-                                updateUI(myuser)
+                            override fun onDataChange(data: DataSnapshot?) {
+                              //  var value=data?.value as String
+                                updateUI(user?.uid)
+
                             }
 
-                            override fun onCancelled(error: DatabaseError) {
-                                // Failed to read value
-                                Log.w("Ch3", "Failed to read value.", error.toException())
-                            }
-                        })
+                            override fun onCancelled(error: DatabaseError?) {
+
+                                Toast.makeText(this@MainActivity,"wrong username and password",Toast.LENGTH_LONG).show()
+                                Log.e("database error",error?.message)
+
+                            }})
 
 
                     } else {
@@ -147,7 +149,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun signUp(email: String,pass: String,imageuri:String){
+    private fun signUp(email: String,pass: String,imageurii:String){
         mAuth.createUserWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(this) { task ->
                     if (task.isSuccessful) {
@@ -155,10 +157,13 @@ class MainActivity : AppCompatActivity() {
 
                         var user = mAuth.currentUser
                         databaseref=database.getReference("users")
-                        var myuser=User(email,imageuri,"Ahmed")
+
+                        var data:Uri= Uri.parse(imageurii)
+                        uploadImagetoserver(data,user?.uid)
+                        var myuser=User(email,imageuri.text.toString(),"Ahmed")
                         databaseref.child(user?.uid).setValue(myuser)
 
-                        updateUI(myuser)
+                        updateUI(user?.uid)
                     } else {
                         // If sign in fails, display a message to the user.
                         Toast.makeText(this@MainActivity, "signup failed.",
@@ -172,11 +177,11 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun updateUI(user:User?){
-        if (user!=null) {
-            var user1:User=user
+    private fun updateUI(userid:String?){
+        if (userid!=null) {
+
             var i: Intent = Intent(this@MainActivity, TransactionActivity::class.java)
-           // i.putExtra(Contract.EXTRA_USER_VALUE1,user1)
+            i.putExtra(Contract.EXTRA_USER_VALUE1,userid)
             startActivity(i)
         }
 
@@ -202,8 +207,6 @@ class MainActivity : AppCompatActivity() {
 
 
     private fun uploadImage(){
-        val takePicture = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        startActivityForResult(takePicture, 0)
         val pickPhoto = Intent(Intent.ACTION_PICK,
                 android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
         startActivityForResult(pickPhoto, 1)
@@ -212,20 +215,33 @@ class MainActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+
         when(requestCode){
-            0 ->{
-                if(resultCode== Activity.RESULT_OK){
-                    val selectedImage = data?.data
-                    imageuri.text = selectedImage.toString()
-                }
-            }
 
             1 ->{
                 if (resultCode== Activity.RESULT_OK){
                     val selectedImage = data?.data
                     imageuri.text = selectedImage.toString()
+
                 }
             }
         }
+    }
+
+
+    fun uploadImagetoserver(data: Uri, uid: String?){
+        var imageUri: Uri = data
+        val bitmap:Bitmap=MediaStore.Images.Media.getBitmap(this.contentResolver,imageUri)
+        var stream:ByteArrayOutputStream= ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG,100,stream)
+        var imagedata: ByteArray = stream.toByteArray()
+        var storageRef:StorageReference=storage.getReference("users")
+        var imageref:StorageReference=storageRef.child(uid!!).child("image.jpg")
+        var uploadTask:UploadTask=imageref.putBytes(imagedata)
+        uploadTask.addOnSuccessListener { taskSnapshot:UploadTask.TaskSnapshot ->var url=taskSnapshot.downloadUrl.toString()
+            imageuri.text=url
+        Log.d("downloadurl",url) }
+        uploadTask.addOnFailureListener{exception: Exception ->Log.d("upload error",exception.localizedMessage)  }
+
     }
 }

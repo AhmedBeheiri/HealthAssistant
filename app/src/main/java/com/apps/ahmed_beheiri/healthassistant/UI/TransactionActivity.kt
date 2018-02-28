@@ -22,10 +22,13 @@ class TransactionActivity : AppCompatActivity() {
     lateinit var user:FirebaseUser
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private lateinit var pairedDeviceArrayAdapter: ArrayAdapter<String>
+    private lateinit var userid:String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_transaction)
+        userid= intent.getStringExtra(Contract.EXTRA_USER_VALUE1)
+        Log.d("UserValue",userid)
     }
 
     override fun onResume() {
@@ -42,6 +45,7 @@ class TransactionActivity : AppCompatActivity() {
             val address = str.substring(str.length - 17)
             val intent = Intent(applicationContext, ProfileActivity::class.java)
             intent.putExtra(Contract.EXTRA_DEVICE_ADDRESS, address)
+            intent.putExtra(Contract.EXTRA_USER_VALUE2,userid)
             startActivity(intent)
 
 
