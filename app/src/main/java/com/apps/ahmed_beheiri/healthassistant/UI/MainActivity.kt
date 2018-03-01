@@ -25,6 +25,16 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.android.gms.tasks.Task
+import com.google.firebase.auth.AuthCredential
+import com.google.firebase.auth.AuthResult
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import com.google.firebase.storage.UploadTask
@@ -38,6 +48,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var databaseref:DatabaseReference
     lateinit var database:FirebaseDatabase
     lateinit var storage: FirebaseStorage
+    lateinit var mGooglesignInClient:GoogleSignInClient
+    private val RC_SIGN_Google=9001
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,7 +61,14 @@ class MainActivity : AppCompatActivity() {
        database = FirebaseDatabase.getInstance()
         storage= FirebaseStorage.getInstance()
 
+        var gso:GoogleSignInOptions= GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestProfile()
+                .requestEmail().build()
 
+        mGooglesignInClient=GoogleSignIn.getClient(this,gso)
+
+        google.setOnClickListener{SignInwithGoogle()}
         cancel.setOnClickListener { prepareBackTransation(fab_reveal_layout) }
         signInButton.setOnClickListener{
             if(emaillogin.text.isEmpty()||passlogin.text.isEmpty()){
@@ -225,6 +244,20 @@ class MainActivity : AppCompatActivity() {
 
                 }
             }
+
+            RC_SIGN_Google ->{
+                var task:Task<GoogleSignInAccount> =GoogleSignIn.getSignedInAccountFromIntent(data)
+                try{
+
+                    var account:GoogleSignInAccount=task.getResult(ApiException::class.java)
+                    firebaseAuthWithFireBase(account)
+
+                }catch (e: ApiException){
+                    e.printStackTrace()
+                    Log.d("Googlesignin","Sign in Failed : "+e)
+                    updateUI(null)
+                }
+            }
         }
     }
 
@@ -244,4 +277,40 @@ class MainActivity : AppCompatActivity() {
         uploadTask.addOnFailureListener{exception: Exception ->Log.d("upload error",exception.localizedMessage)  }
 
     }
+
+
+    fun SignInwithGoogle(){
+        var i= mGooglesignInClient.signInIntent
+        startActivityForResult(i,RC_SIGN_Google)
+    }
+
+
+    private fun firebaseAuthWithFireBase(account: GoogleSignInAccount){
+        Log.d("GooglesignIn", "firebaseAuthWithGoogle:" + account.getId())
+        var credentials:AuthCredential=GoogleAuthProvider.getCredential(account.idToken,null)
+        mAuth.signInWithCredential(credentials)
+                .addOnCompleteListener(this, object : OnCompleteListener<AuthResult> {
+                   override fun onComplete(task: Task<AuthResult>) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d("GoogleSigIn", "signInWithCredential:success")
+                            val user = mAuth.getCurrentUser()
+                            databaseref=database.getReference("users")
+                            var myuser=User(user?.email!!,user.photoUrl.toString(),user.displayName!!)
+                            databaseref.child(user?.uid).setValue(myuser)
+                            updateUI(user?.uid)
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Log.w("GoogleSignIn", "signInWithCredential:failure", task.getException())
+                            Toast.makeText(this@MainActivity, "Authentication Failed.", Toast.LENGTH_SHORT).show()
+                            updateUI(null)
+                        }
+                    }
+                })
+    }
+
+
+
+
+
 }
