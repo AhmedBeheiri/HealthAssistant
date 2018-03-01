@@ -1,6 +1,7 @@
 package com.apps.ahmed_beheiri.healthassistant.UI
 
 import android.app.Activity
+import android.app.LoaderManager
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -10,7 +11,6 @@ import android.os.Handler
 import android.util.Log
 import android.view.View
 import com.apps.ahmed_beheiri.healthassistant.R
-import com.google.firebase.auth.FirebaseAuth
 import com.truizlop.fabreveallayout.FABRevealLayout
 import com.truizlop.fabreveallayout.OnRevealChangeListener
 import kotlinx.android.synthetic.main.activity_main.*
@@ -25,6 +25,7 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
+import com.facebook.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
@@ -32,14 +33,17 @@ import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.tasks.OnCompleteListener
 import com.google.android.gms.tasks.Task
-import com.google.firebase.auth.AuthCredential
-import com.google.firebase.auth.AuthResult
-import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import com.google.firebase.storage.UploadTask
 import java.io.ByteArrayOutputStream
 import java.lang.Exception
+import com.facebook.appevents.AppEventsLogger
+import com.facebook.login.LoginManager
+import com.facebook.login.LoginResult
+import com.facebook.login.widget.LoginButton
+import com.google.firebase.auth.*
+import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -50,13 +54,42 @@ class MainActivity : AppCompatActivity() {
     lateinit var storage: FirebaseStorage
     lateinit var mGooglesignInClient:GoogleSignInClient
     private val RC_SIGN_Google=9001
+    lateinit var mCallbackManager: CallbackManager
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        FacebookSdk.sdkInitialize(getApplicationContext())
+        AppEventsLogger.activateApp(this)
         configureFabreveal(fab_reveal_layout)
         mAuth= FirebaseAuth.getInstance()
+
+        mCallbackManager= CallbackManager.Factory.create()
+       LoginManager.getInstance().registerCallback(mCallbackManager,object :FacebookCallback<LoginResult>{
+           override fun onSuccess(result: LoginResult?) {
+               handleFacebookAccessToken(result?.getAccessToken()!!)
+           }
+
+           override fun onError(error: FacebookException?) {
+               Log.d("FacebookLogin","Error "+error?.message)
+               updateUI(null)
+
+           }
+
+           override fun onCancel() {
+               Log.d("FacebookLogin","canceled ")
+               updateUI(null)
+
+           }
+
+       })
+
+        facebook.setOnClickListener{
+            LoginManager.getInstance().logInWithReadPermissions(this, Arrays.asList("public_profile","email"))
+
+        }
 
        database = FirebaseDatabase.getInstance()
         storage= FirebaseStorage.getInstance()
@@ -179,7 +212,7 @@ class MainActivity : AppCompatActivity() {
 
                         var data:Uri= Uri.parse(imageurii)
                         uploadImagetoserver(data,user?.uid)
-                        var myuser=User(email,imageuri.text.toString(),"Ahmed")
+                        var myuser=User(email,imageuri.text.toString(),gettingUsernamefromEmail(email.trim()))
                         databaseref.child(user?.uid).setValue(myuser)
 
                         updateUI(user?.uid)
@@ -259,6 +292,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        mCallbackManager.onActivityResult(requestCode, resultCode, data)
     }
 
 
@@ -307,6 +341,37 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 })
+    }
+
+
+
+    fun handleFacebookAccessToken(token:AccessToken){
+        var credentials:AuthCredential=FacebookAuthProvider.getCredential(token.token)
+        mAuth.signInWithCredential(credentials)
+                .addOnCompleteListener(this,object :OnCompleteListener<AuthResult>{
+                    override fun onComplete(task: Task<AuthResult>) {
+                        if(task.isSuccessful){
+
+                            var user:FirebaseUser?=mAuth.currentUser
+                            databaseref=database.getReference("users")
+                            var myuser:User= User(user?.email!!,user?.photoUrl.toString(),user?.displayName!!)
+                            databaseref.child(user?.uid).setValue(myuser)
+                            updateUI(user?.uid)
+                        }else{
+                            Log.d("FacebookLogin","Failed to sign In")
+                            Toast.makeText(this@MainActivity,"Failed to sign in try Again",Toast.LENGTH_LONG).show()
+                            updateUI(null)
+
+                        }
+                    }
+                })
+    }
+
+
+    fun gettingUsernamefromEmail(email: String):String{
+        var index=email.indexOf('@')
+        var username=email.substring(0,index)
+        return username
     }
 
 
