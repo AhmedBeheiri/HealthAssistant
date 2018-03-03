@@ -6,6 +6,7 @@ import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import android.content.DialogInterface
 import android.content.Intent
+import android.net.Uri
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
@@ -13,18 +14,35 @@ import android.os.Message
 import android.support.design.widget.AppBarLayout
 import android.support.v7.app.AlertDialog
 import android.util.Log
+import android.view.Menu
+import android.view.MenuInflater
+import android.view.MenuItem
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
 import butterknife.BindView
 import butterknife.ButterKnife
 import com.apps.ahmed_beheiri.healthassistant.Model.Contract
+import com.apps.ahmed_beheiri.healthassistant.Model.User
 import com.apps.ahmed_beheiri.healthassistant.R
+import com.facebook.login.LoginManager
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.tasks.OnFailureListener
+import com.google.android.gms.tasks.OnSuccessListener
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.database.*
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import com.squareup.picasso.Picasso
 import kotlinx.android.synthetic.main.activity_profile.*
 import kotlinx.android.synthetic.main.content_profile.*
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.lang.Exception
 import java.util.*
 
 class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener {
@@ -43,6 +61,14 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
     private val BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private var address: String? = null
 
+    lateinit var user:FirebaseUser
+    lateinit var mAuth:FirebaseAuth
+    lateinit var database: FirebaseDatabase
+    lateinit var storage: FirebaseStorage
+    lateinit var provider:String
+    lateinit  var storageRef: StorageReference
+    lateinit var mgoogleSignInClient: GoogleSignInClient
+
 
     private var isHideToolbarView:Boolean=false
     @SuppressLint("HandlerLeak")
@@ -50,11 +76,54 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
         ButterKnife.bind(this)
+        var gso: GoogleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestProfile()
+                .requestEmail().build()
+
+        mgoogleSignInClient=GoogleSignIn.getClient(this,gso)
+        database= FirebaseDatabase.getInstance()
+        storage= FirebaseStorage.getInstance()
+        mAuth= FirebaseAuth.getInstance()
+        user= mAuth.currentUser!!
+        var databaseReference:DatabaseReference=database.getReference("users").child(user.uid)
+         storageRef =storage.getReference("users")
+        Log.d("Provider", user.providers!![0].toString())
+        provider=user.providers!![0].toString()
+        if(provider.equals("facebook.com")||provider.equals("google.com")){
+            databaseReference.addListenerForSingleValueEvent(object:ValueEventListener{
+                override fun onDataChange(value: DataSnapshot?) {
+                    var myuser: User? =value?.getValue(User::class.java)
+                    Picasso.with(this@ProfileActivity).load(myuser!!.imageuri).placeholder(R.drawable.index).into(image)
+                    initUi(myuser!!.username,3)
+                }
+
+                override fun onCancelled(error: DatabaseError?) {
+                    Log.d("Database Error","error retriving data : "+error?.message)
+                }
+            })
+        }else{
+
+
+            databaseReference.addListenerForSingleValueEvent(object:ValueEventListener{
+                override fun onDataChange(value: DataSnapshot?) {
+                    var myuser: User? =value?.getValue(User::class.java)
+
+                    loadimage()
+                    initUi(myuser!!.username,3)
+                }
+
+                override fun onCancelled(error: DatabaseError?) {
+                    Log.d("Database Error","error retriving data : "+error?.message)
+                }
+            })
+
+        }
 
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         supportActionBar?.setDisplayShowTitleEnabled(false)
-        initUi()
+        //initUi()
 
         bluetoothin = object : Handler() {
             override fun handleMessage(msg: Message) {
@@ -230,6 +299,8 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
                 tmpIn = socket?.inputStream
                 tmpOut = socket?.outputStream
             } catch (e: IOException) {
+                bluetoothtextView.setText("Dissconnected")
+                bluetoothimageView.setImageDrawable(resources.getDrawable(R.drawable.ic_bluetooth_disabled_indigo_800_48dp))
             }
 
             mmInStream = tmpIn
@@ -255,11 +326,11 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
         }
     }
 
-private fun initUi() {
+private fun initUi(username:String,Followers_number:Int) {
         appbar.addOnOffsetChangedListener(this)
 
-        toolbarHeaderView.bindTo("User Page", "Followrs : 3")
-        floatHeaderView.bindTo("User Page", "Followrs : 3")
+        toolbarHeaderView.bindTo(username, "Followrs : "+Followers_number)
+        floatHeaderView.bindTo(username, "Followrs : "+Followers_number)
     }
 
     override fun onOffsetChanged(appBarLayout: AppBarLayout, offset: Int) {
@@ -274,6 +345,62 @@ private fun initUi() {
             toolbarHeaderView?.visibility = View.GONE
             isHideToolbarView = !isHideToolbarView
         }
+    }
+
+
+    private fun loadimage() {
+        var imageref: StorageReference =storageRef.child(user?.uid).child("image.jpg")
+        imageref.downloadUrl.addOnSuccessListener(object :OnSuccessListener<Uri>{
+            override fun onSuccess(uri: Uri?) {
+                Picasso.with(this@ProfileActivity).load(uri).placeholder(resources.getDrawable(R.drawable.index)).into(image)
+            }
+        }).addOnFailureListener(object :OnFailureListener{
+            override fun onFailure(p0: Exception) {
+                Log.d("loadImage",p0.localizedMessage)
+            }
+        })
+
+
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        var inflater:MenuInflater=menuInflater
+        inflater.inflate(R.menu.main,menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem?): Boolean {
+        when (item?.itemId){
+            R.id.logout->{
+                if(provider.equals("facebook.com")){
+                    LoginManager.getInstance().logOut()
+                    Signout()
+
+
+                }else if(provider.equals("google.com")){
+                    mgoogleSignInClient.signOut().addOnSuccessListener {
+                        Log.d("Google Sign Out ","Success")
+                    }
+                    Signout()
+
+
+                }else{
+                    Signout()
+                }
+
+                return true
+
+            }
+        }
+        return true
+    }
+
+
+
+    fun Signout(){
+        mAuth.signOut();
+        val intent=Intent(this,MainActivity::class.java)
+        startActivity(intent)
     }
 
 }

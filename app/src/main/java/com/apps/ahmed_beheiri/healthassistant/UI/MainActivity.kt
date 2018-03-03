@@ -1,8 +1,10 @@
 package com.apps.ahmed_beheiri.healthassistant.UI
 
 import android.app.Activity
-import android.app.LoaderManager
 import android.content.Intent
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.content.pm.Signature
 import android.graphics.Bitmap
 import android.net.Uri
 import android.support.v7.app.AppCompatActivity
@@ -25,6 +27,7 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
+import android.util.Base64
 import com.facebook.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -41,8 +44,9 @@ import java.lang.Exception
 import com.facebook.appevents.AppEventsLogger
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
-import com.facebook.login.widget.LoginButton
 import com.google.firebase.auth.*
+import java.security.MessageDigest
+import java.security.NoSuchAlgorithmException
 import java.util.*
 
 
@@ -64,67 +68,79 @@ class MainActivity : AppCompatActivity() {
         FacebookSdk.sdkInitialize(getApplicationContext())
         AppEventsLogger.activateApp(this)
         configureFabreveal(fab_reveal_layout)
-        mAuth= FirebaseAuth.getInstance()
+        mAuth = FirebaseAuth.getInstance()
 
-        mCallbackManager= CallbackManager.Factory.create()
-       LoginManager.getInstance().registerCallback(mCallbackManager,object :FacebookCallback<LoginResult>{
-           override fun onSuccess(result: LoginResult?) {
-               handleFacebookAccessToken(result?.getAccessToken()!!)
-           }
+        mCallbackManager = CallbackManager.Factory.create()
+        LoginManager.getInstance().registerCallback(mCallbackManager, object : FacebookCallback<LoginResult> {
+            override fun onSuccess(result: LoginResult?) {
+                handleFacebookAccessToken(result?.getAccessToken()!!)
+            }
 
-           override fun onError(error: FacebookException?) {
-               Log.d("FacebookLogin","Error "+error?.message)
-               updateUI(null)
+            override fun onError(error: FacebookException?) {
+                Log.d("FacebookLogin", "Error " + error?.message)
+                updateUI(null)
 
-           }
+            }
 
-           override fun onCancel() {
-               Log.d("FacebookLogin","canceled ")
-               updateUI(null)
+            override fun onCancel() {
+                Log.d("FacebookLogin", "canceled ")
+                updateUI(null)
 
-           }
+            }
 
-       })
+        })
 
-        facebook.setOnClickListener{
-            LoginManager.getInstance().logInWithReadPermissions(this, Arrays.asList("public_profile","email"))
+        facebook.setOnClickListener {
+            LoginManager.getInstance().logInWithReadPermissions(this, Arrays.asList("public_profile", "email"))
 
         }
 
-       database = FirebaseDatabase.getInstance()
-        storage= FirebaseStorage.getInstance()
+        database = FirebaseDatabase.getInstance()
+        storage = FirebaseStorage.getInstance()
 
-        var gso:GoogleSignInOptions= GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+        var gso: GoogleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestProfile()
                 .requestEmail().build()
 
-        mGooglesignInClient=GoogleSignIn.getClient(this,gso)
+        @JvmStatic
+        mGooglesignInClient = GoogleSignIn.getClient(this, gso)
 
-        google.setOnClickListener{SignInwithGoogle()}
+        google.setOnClickListener { SignInwithGoogle() }
         cancel.setOnClickListener { prepareBackTransation(fab_reveal_layout) }
-        signInButton.setOnClickListener{
-            if(emaillogin.text.isEmpty()||passlogin.text.isEmpty()){
-                Toast.makeText(this@MainActivity,"please Enter your e-mail and Password",Toast.LENGTH_LONG).show()
-            }else {
-                signInEmail(emaillogin.text.toString(),passlogin.text.toString())
+        signInButton.setOnClickListener {
+            if (emaillogin.text.isEmpty() || passlogin.text.isEmpty()) {
+                Toast.makeText(this@MainActivity, "please Enter your e-mail and Password", Toast.LENGTH_LONG).show()
+            } else {
+                signInEmail(emaillogin.text.toString(), passlogin.text.toString())
             }
         }
 
-        pickimage.setOnClickListener{
+        pickimage.setOnClickListener {
             uploadImage()
         }
-        signupbtn.setOnClickListener{
-            if(signupemail.text.isEmpty()||passsignup.text.isEmpty()||imageuri.text.equals("Pick an Image")){
-                Toast.makeText(this@MainActivity,"Please enter E-mail and password and pick an image to signup",Toast.LENGTH_LONG).show()
+        signupbtn.setOnClickListener {
+            if (signupemail.text.isEmpty() || passsignup.text.isEmpty() || imageuri.text.equals("Pick an Image")) {
+                Toast.makeText(this@MainActivity, "Please enter E-mail and password and pick an image to signup", Toast.LENGTH_LONG).show()
 
-            }else{
-                signUp(signupemail.text.toString().trim(),passsignup.text.toString().trim(),imageuri.text.toString().trim())
+            } else {
+                signUp(signupemail.text.toString().trim(), passsignup.text.toString().trim(), imageuri.text.toString().trim())
             }
         }
+       /* try {
+            val info = packageManager.getPackageInfo(
+                    "com.apps.ahmed_beheiri.healthassistant",
+                    PackageManager.GET_SIGNATURES)
+            for (signature in info.signatures) {
+                val md = MessageDigest.getInstance("SHA")
+                md.update(signature.toByteArray())
+                Log.d("KeyHash:", Base64.encodeToString(md.digest(), Base64.DEFAULT))
+            }
+        } catch (e: PackageManager.NameNotFoundException) {
 
+        } catch (e: NoSuchAlgorithmException) {
 
-
+        }*/
     }
 
     override fun onStart() {
