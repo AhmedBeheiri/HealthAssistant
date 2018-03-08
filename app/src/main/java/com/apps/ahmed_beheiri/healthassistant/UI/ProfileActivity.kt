@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
-import android.content.DialogInterface
 import android.content.Intent
 import android.net.Uri
 import android.support.v7.app.AppCompatActivity
@@ -12,18 +11,17 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Message
 import android.support.design.widget.AppBarLayout
-import android.support.v7.app.AlertDialog
 import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.Toast
 import butterknife.BindView
 import butterknife.ButterKnife
 import com.apps.ahmed_beheiri.healthassistant.Model.Contract
 import com.apps.ahmed_beheiri.healthassistant.Model.User
+import com.apps.ahmed_beheiri.healthassistant.Model.UserData
 import com.apps.ahmed_beheiri.healthassistant.R
 import com.facebook.login.LoginManager
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -45,12 +43,12 @@ import java.io.OutputStream
 import java.lang.Exception
 import java.util.*
 
-class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener {
+class ProfileActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListener {
     @BindView(R.id.toolbar_header_view)
-      protected lateinit var toolbarHeaderView: HeaderView
+    protected lateinit var toolbarHeaderView: HeaderView
 
     @BindView(R.id.float_header_view)
-     protected lateinit var floatHeaderView: HeaderView
+    protected lateinit var floatHeaderView: HeaderView
 
     internal lateinit var bluetoothin: Handler
     internal val handlerstate = 0
@@ -61,60 +59,73 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
     private val BTMODULEUUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
     private var address: String? = null
 
-    lateinit var user:FirebaseUser
-    lateinit var mAuth:FirebaseAuth
+    lateinit var user: FirebaseUser
+    lateinit var mAuth: FirebaseAuth
     lateinit var database: FirebaseDatabase
     lateinit var storage: FirebaseStorage
-    lateinit var provider:String
-    lateinit  var storageRef: StorageReference
+    lateinit var provider: String
+    lateinit var storageRef: StorageReference
     lateinit var mgoogleSignInClient: GoogleSignInClient
+    lateinit var data:UserData
+    lateinit var myuser:User
 
 
-    private var isHideToolbarView:Boolean=false
+    private var isHideToolbarView: Boolean = false
     @SuppressLint("HandlerLeak")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
         ButterKnife.bind(this)
+
+        myuser=User()
         var gso: GoogleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
                 .requestIdToken(getString(R.string.default_web_client_id))
                 .requestProfile()
                 .requestEmail().build()
 
-        mgoogleSignInClient=GoogleSignIn.getClient(this,gso)
-        database= FirebaseDatabase.getInstance()
-        storage= FirebaseStorage.getInstance()
-        mAuth= FirebaseAuth.getInstance()
-        user= mAuth.currentUser!!
-        var databaseReference:DatabaseReference=database.getReference("users").child(user.uid)
-         storageRef =storage.getReference("users")
+        mgoogleSignInClient = GoogleSignIn.getClient(this, gso)
+        database = FirebaseDatabase.getInstance()
+        storage = FirebaseStorage.getInstance()
+        mAuth = FirebaseAuth.getInstance()
+        user = mAuth.currentUser!!
+        var databaseReference: DatabaseReference = database.getReference("users").child(user.uid)
+
+        storageRef = storage.getReference("users")
         Log.d("Provider", user.providers!![0].toString())
-        provider=user.providers!![0].toString()
-        if(provider.equals("facebook.com")||provider.equals("google.com")){
-            databaseReference.addListenerForSingleValueEvent(object:ValueEventListener{
+        provider = user.providers!![0].toString()
+        if (provider.equals("facebook.com") || provider.equals("google.com")) {
+            databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(value: DataSnapshot?) {
-                    var myuser: User? =value?.getValue(User::class.java)
+                    var myuser: User? = value?.getValue(User::class.java)
                     Picasso.with(this@ProfileActivity).load(myuser!!.imageuri).placeholder(R.drawable.index).into(image)
-                    initUi(myuser!!.username,3)
+                    if(value?.child("followers")?.exists()!!) {
+                        initUi(myuser!!.username, myuser!!.followers.size)
+                    }else{
+                        initUi(myuser!!.username, 0)
+                    }
                 }
 
                 override fun onCancelled(error: DatabaseError?) {
-                    Log.d("Database Error","error retriving data : "+error?.message)
+                    Log.d("Database Error", "error retriving data : " + error?.message)
                 }
             })
-        }else{
+        } else {
 
 
-            databaseReference.addListenerForSingleValueEvent(object:ValueEventListener{
+            databaseReference.addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(value: DataSnapshot?) {
-                    var myuser: User? =value?.getValue(User::class.java)
+                    var myuser: User? = value?.getValue(User::class.java)
 
                     loadimage()
-                    initUi(myuser!!.username,3)
+                    if(value?.child("followers")?.exists()!!) {
+                        initUi(myuser!!.username, myuser!!.followers.size)
+                    }else{
+                        initUi(myuser!!.username, 0)
+                    }
                 }
 
                 override fun onCancelled(error: DatabaseError?) {
-                    Log.d("Database Error","error retriving data : "+error?.message)
+                    Log.d("Database Error", "error retriving data : " + error?.message)
                 }
             })
 
@@ -134,9 +145,9 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
                     Log.i("message", msg.obj.toString())
                     stringBuilder.append(readMessage)                                      //keep appending to string until ~
                     val endOfLineIndex = stringBuilder.indexOf("~") // determine the end-of-line
-                    val endoffirstsensor=stringBuilder.indexOf("!")
-                    val endofsecondsensor=stringBuilder.indexOf("$")
-                    val endofthirdsensor=stringBuilder.indexOf("&")
+                    val endoffirstsensor = stringBuilder.indexOf("!")
+                    val endofsecondsensor = stringBuilder.indexOf("$")
+                    val endofthirdsensor = stringBuilder.indexOf("&")
                     if (endOfLineIndex > 0) {                                           // make sure there data before ~
                         var dataInPrint = stringBuilder.substring(0, endOfLineIndex)    // extract string
                         //txtString.setText("Data Received = " + dataInPrint);
@@ -148,51 +159,51 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
                         {
 
 
+                            var sensor0 = stringBuilder.substring(1, endoffirstsensor)             //get sensor value from string between indices 1-5
+                            var sensor1 = stringBuilder.substring(endoffirstsensor + 1, endofsecondsensor) //same again...
+                            var value = sensor1.toInt()
+                            var sensor2 = stringBuilder.substring(endofsecondsensor + 1, endofthirdsensor)
 
-                                var sensor0 = stringBuilder.substring(1, endoffirstsensor)             //get sensor value from string between indices 1-5
-                                var sensor1 = stringBuilder.substring(endoffirstsensor+1, endofsecondsensor) //same again...
-                                var value=sensor1.toInt()
-                                var sensor2=stringBuilder.substring(endofsecondsensor+1,endofthirdsensor)
+                            if (stringBuilder[1] == '0') {
+                                if (value == 0) {
 
-                            if(stringBuilder[1]=='0'){
-                                if(value==0){
-
-                                valuetextView.text="50% - 70%"
-                                    status.text="Happy"
+                                    valuetextView.text = "50% - 70%"
+                                    status.text = "Happy"
                                     faceimageView.setImageDrawable(resources.getDrawable(R.drawable.happy))
 
 
-                                }else{
+                                } else {
 
-                                    valuetextView.text="over 80%"
-                                    status.text="angry"
+                                    valuetextView.text = "over 80%"
+                                    status.text = "angry"
                                     faceimageView.setImageDrawable(resources.getDrawable(R.drawable.angry))
 
                                 }
-                                temptextView.text=sensor2 +" C"
+                                temptextView.text = sensor2 + " C"
 
-                            }else {
+                            } else {
 
                                 //String sensor2 = recDataString.substring(11, 15);
                                 //String sensor3 = recDataString.substring(16, 20);
                                 hearttextView.text = sensor0 + " BPM"
-                                if(value==0){
+                                if (value == 0) {
 
-                                    valuetextView.text="50% - 70%"
-                                    status.text="Happy"
+                                    valuetextView.text = "50% - 70%"
+                                    status.text = "Happy"
                                     faceimageView.setImageDrawable(resources.getDrawable(R.drawable.happy))
 
 
-                                }else{
+                                } else {
 
-                                    valuetextView.text="over 80%"
-                                    status.text="angry"
+                                    valuetextView.text = "over 80%"
+                                    status.text = "angry"
                                     faceimageView.setImageDrawable(resources.getDrawable(R.drawable.angry))
 
                                 }
                                 temptextView.text = sensor2 + " C"
                             }
 
+                            data= UserData(sensor0.toFloat(),sensor2.toFloat(),sensor1.toInt())
 
 
                             //update the textviews with sensor values
@@ -206,10 +217,6 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
         }
         adapter = BluetoothAdapter.getDefaultAdapter()
         checkBTState()
-
-
-
-
 
 
     }
@@ -243,6 +250,8 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
         try {
             socket?.connect()
         } catch (e: IOException) {
+            bluetoothtextView.setText("Disconnected")
+            bluetoothimageView.setImageDrawable(resources.getDrawable(R.drawable.ic_bluetooth_disabled_indigo_800_48dp))
             try {
                 socket?.close()
             } catch (e2: IOException) {
@@ -326,11 +335,11 @@ class ProfileActivity : AppCompatActivity(),AppBarLayout.OnOffsetChangedListener
         }
     }
 
-private fun initUi(username:String,Followers_number:Int) {
+    private fun initUi(username: String, Followers_number: Int) {
         appbar.addOnOffsetChangedListener(this)
 
-        toolbarHeaderView.bindTo(username, "Followrs : "+Followers_number)
-        floatHeaderView.bindTo(username, "Followrs : "+Followers_number)
+        toolbarHeaderView.bindTo(username, "Following : " + Followers_number)
+        floatHeaderView.bindTo(username, "Following : " + Followers_number)
     }
 
     override fun onOffsetChanged(appBarLayout: AppBarLayout, offset: Int) {
@@ -349,14 +358,14 @@ private fun initUi(username:String,Followers_number:Int) {
 
 
     private fun loadimage() {
-        var imageref: StorageReference =storageRef.child(user?.uid).child("image.jpg")
-        imageref.downloadUrl.addOnSuccessListener(object :OnSuccessListener<Uri>{
+        var imageref: StorageReference = storageRef.child(user?.uid).child("image.jpg")
+        imageref.downloadUrl.addOnSuccessListener(object : OnSuccessListener<Uri> {
             override fun onSuccess(uri: Uri?) {
                 Picasso.with(this@ProfileActivity).load(uri).placeholder(resources.getDrawable(R.drawable.index)).into(image)
             }
-        }).addOnFailureListener(object :OnFailureListener{
+        }).addOnFailureListener(object : OnFailureListener {
             override fun onFailure(p0: Exception) {
-                Log.d("loadImage",p0.localizedMessage)
+                Log.d("loadImage", p0.localizedMessage)
             }
         })
 
@@ -364,42 +373,46 @@ private fun initUi(username:String,Followers_number:Int) {
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        var inflater:MenuInflater=menuInflater
-        inflater.inflate(R.menu.main,menu)
+        var inflater: MenuInflater = menuInflater
+        inflater.inflate(R.menu.main, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem?): Boolean {
-        when (item?.itemId){
-            R.id.logout->{
-                if(provider.equals("facebook.com")){
+        when (item?.itemId) {
+            R.id.logout -> {
+                if (provider.equals("facebook.com")) {
                     LoginManager.getInstance().logOut()
                     Signout()
 
 
-                }else if(provider.equals("google.com")){
+                } else if (provider.equals("google.com")) {
                     mgoogleSignInClient.signOut().addOnSuccessListener {
-                        Log.d("Google Sign Out ","Success")
+                        Log.d("Google Sign Out ", "Success")
                     }
                     Signout()
 
 
-                }else{
+                } else {
                     Signout()
                 }
 
                 return true
 
             }
+            R.id.following ->{
+                val intent=Intent(this,FollowingActivity::class.java)
+                startActivity(intent)
+                return true
+            }
         }
         return true
     }
 
 
-
-    fun Signout(){
+    fun Signout() {
         mAuth.signOut();
-        val intent=Intent(this,MainActivity::class.java)
+        val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
     }
 

@@ -28,6 +28,7 @@ import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
 import android.util.Base64
+import com.apps.ahmed_beheiri.healthassistant.Model.UserData
 import com.facebook.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInAccount
@@ -48,6 +49,8 @@ import com.google.firebase.auth.*
 import java.security.MessageDigest
 import java.security.NoSuchAlgorithmException
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.LinkedHashMap
 
 
 class MainActivity : AppCompatActivity() {
@@ -59,6 +62,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var mGooglesignInClient:GoogleSignInClient
     private val RC_SIGN_Google=9001
     lateinit var mCallbackManager: CallbackManager
+    var followers:LinkedHashMap<String,User> = LinkedHashMap()
+    lateinit var datauser:UserData
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,6 +74,7 @@ class MainActivity : AppCompatActivity() {
         AppEventsLogger.activateApp(this)
         configureFabreveal(fab_reveal_layout)
         mAuth = FirebaseAuth.getInstance()
+        datauser= UserData(1.0f,1.0f,1)
 
         mCallbackManager = CallbackManager.Factory.create()
         LoginManager.getInstance().registerCallback(mCallbackManager, object : FacebookCallback<LoginResult> {
@@ -146,6 +152,7 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         if(mAuth.currentUser!=null) {
+            progressbar.visibility=View.VISIBLE
             val currentuser = mAuth.currentUser
             databaseref = database.getReference("users").child(currentuser?.uid)
                 databaseref.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -186,6 +193,7 @@ class MainActivity : AppCompatActivity() {
 
         mAuth.signInWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(this) { task ->
+                    progressbar.visibility=View.VISIBLE
                     if (task.isSuccessful) {
                         // Sign in success, update UI with the signed-in user's information
                         val user = mAuth.currentUser
@@ -220,6 +228,7 @@ class MainActivity : AppCompatActivity() {
     private fun signUp(email: String,pass: String,imageurii:String){
         mAuth.createUserWithEmailAndPassword(email, pass)
                 .addOnCompleteListener(this) { task ->
+                    progressbar.visibility=View.VISIBLE
                     if (task.isSuccessful) {
                         // Sign in success, update UI with the signed-in user's information
 
@@ -228,7 +237,7 @@ class MainActivity : AppCompatActivity() {
 
                         var data:Uri= Uri.parse(imageurii)
                         uploadImagetoserver(data,user?.uid)
-                        var myuser=User(email,imageuri.text.toString(),gettingUsernamefromEmail(email.trim()))
+                        var myuser=User(email,imageuri.text.toString(),gettingUsernamefromEmail(email.trim()),followers,datauser,getcode())
                         databaseref.child(user?.uid).setValue(myuser)
 
                         updateUI(user?.uid)
@@ -247,6 +256,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI(userid:String?){
         if (userid!=null) {
+            progressbar.visibility=View.GONE
 
             var i: Intent = Intent(this@MainActivity, TransactionActivity::class.java)
             i.putExtra(Contract.EXTRA_USER_VALUE1,userid)
@@ -337,6 +347,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun firebaseAuthWithFireBase(account: GoogleSignInAccount){
         Log.d("GooglesignIn", "firebaseAuthWithGoogle:" + account.getId())
+        progressbar.visibility=View.VISIBLE
         var credentials:AuthCredential=GoogleAuthProvider.getCredential(account.idToken,null)
         mAuth.signInWithCredential(credentials)
                 .addOnCompleteListener(this, object : OnCompleteListener<AuthResult> {
@@ -346,15 +357,29 @@ class MainActivity : AppCompatActivity() {
                             Log.d("GoogleSigIn", "signInWithCredential:success")
                             val user = mAuth.getCurrentUser()
                             databaseref=database.getReference("users")
-                            var myuser=User(user?.email!!,user.photoUrl.toString(),user.displayName!!)
-                            databaseref.child(user?.uid).setValue(myuser)
-                            updateUI(user?.uid)
+                            databaseref.addListenerForSingleValueEvent(object :ValueEventListener{
+                                override fun onDataChange(p0: DataSnapshot?) {
+                                    if(p0?.hasChild(user?.uid)!!){
+                                        updateUI(user?.uid)
+                                    }else{
+                                        var myuser=User(user?.email!!,user.photoUrl.toString(),user.displayName!!,followers,datauser,getcode())
+                                        databaseref.child(user?.uid).setValue(myuser)
+                                        updateUI(user?.uid)
+                                    }
+                                }
+
+                                override fun onCancelled(p0: DatabaseError?) {
+
+                                }
+
+                            })
                         } else {
                             // If sign in fails, display a message to the user.
                             Log.w("GoogleSignIn", "signInWithCredential:failure", task.getException())
                             Toast.makeText(this@MainActivity, "Authentication Failed.", Toast.LENGTH_SHORT).show()
                             updateUI(null)
                         }
+
                     }
                 })
     }
@@ -362,6 +387,7 @@ class MainActivity : AppCompatActivity() {
 
 
     fun handleFacebookAccessToken(token:AccessToken){
+        progressbar.visibility=View.VISIBLE
         var credentials:AuthCredential=FacebookAuthProvider.getCredential(token.token)
         mAuth.signInWithCredential(credentials)
                 .addOnCompleteListener(this,object :OnCompleteListener<AuthResult>{
@@ -370,15 +396,32 @@ class MainActivity : AppCompatActivity() {
 
                             var user:FirebaseUser?=mAuth.currentUser
                             databaseref=database.getReference("users")
-                            var myuser:User= User(user?.email!!,user?.photoUrl.toString(),user?.displayName!!)
-                            databaseref.child(user?.uid).setValue(myuser)
-                            updateUI(user?.uid)
+                            databaseref.addListenerForSingleValueEvent(object :ValueEventListener{
+                                override fun onDataChange(p0: DataSnapshot?) {
+                                    if(p0?.hasChild(user?.uid)!!){
+                                        updateUI(user?.uid)
+                                    }else{
+
+                                        var myuser:User= User(user?.email!!,user?.photoUrl.toString(),user?.displayName!!,followers,datauser,getcode())
+                                        databaseref.child(user?.uid).setValue(myuser)
+                                        updateUI(user?.uid)
+
+                                    }
+
+                                }
+
+                                override fun onCancelled(p0: DatabaseError?) {
+
+                                }
+                            })
+
                         }else{
                             Log.d("FacebookLogin","Failed to sign In")
                             Toast.makeText(this@MainActivity,"Failed to sign in try Again",Toast.LENGTH_LONG).show()
                             updateUI(null)
 
                         }
+
                     }
                 })
     }
@@ -388,6 +431,12 @@ class MainActivity : AppCompatActivity() {
         var index=email.indexOf('@')
         var username=email.substring(0,index)
         return username
+    }
+
+    fun getcode():Int{
+        val r = Random()
+        val i1 = r.nextInt(10000 - 1000) + 1000
+        return i1
     }
 
 
