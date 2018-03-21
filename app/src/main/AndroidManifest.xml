@@ -41,9 +41,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".UI.ProfileActivity" />
+        <activity android:name=".UI.ProfileActivity"  android:parentActivityName=".UI.TransactionActivity"/>
         <activity android:name=".UI.TransactionActivity"></activity>
-        <activity android:name=".UI.FollowingActivity"></activity>
+        <activity android:name=".UI.FollowingActivity" android:parentActivityName=".UI.ProfileActivity"></activity>
     </application>
 
 </manifest>

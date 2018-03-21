@@ -182,9 +182,6 @@ class ProfileActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListene
                                 temptextView.text = sensor2 + " C"
 
                             } else {
-
-                                //String sensor2 = recDataString.substring(11, 15);
-                                //String sensor3 = recDataString.substring(16, 20);
                                 hearttextView.text = sensor0 + " BPM"
                                 if (value == 0) {
 
@@ -201,15 +198,29 @@ class ProfileActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListene
 
                                 }
                                 temptextView.text = sensor2 + " C"
+                                data= UserData(sensor0.toFloat(),sensor2.toFloat(),sensor1.toInt())
+                                database.getReference("users").child(user.uid).child("data").setValue(data)
+                                database.getReference("users").child(user.uid).addValueEventListener(object:ValueEventListener{
+                                    override fun onDataChange(value: DataSnapshot?) {
+                                        var followersnapshot:DataSnapshot=value!!.child("followers")
+                                        if(followersnapshot.exists()){
+                                            var followerchildren:Iterable<DataSnapshot> = followersnapshot.children
+                                            for (follower in followerchildren){
+                                                Log.d("followerkey",follower.key)
+                                                database.getReference("users").child(follower.key).child("following").child(user.uid).child("data").setValue(data)
+                                            }
+                                        }
+                                    }
+
+                                    override fun onCancelled(error: DatabaseError?) {
+                                        Log.d("profDataBaseerror",error?.message)
+                                    }
+                                })
                             }
 
-                            data= UserData(sensor0.toFloat(),sensor2.toFloat(),sensor1.toInt())
 
-
-                            //update the textviews with sensor values
                         }
                         stringBuilder.delete(0, stringBuilder.length)                    //clear all string data
-                        // strIncom =" ";
                         dataInPrint = " "
                     }
                 }
@@ -338,8 +349,8 @@ class ProfileActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListene
     private fun initUi(username: String, Followers_number: Int) {
         appbar.addOnOffsetChangedListener(this)
 
-        toolbarHeaderView.bindTo(username, "Following : " + Followers_number)
-        floatHeaderView.bindTo(username, "Following : " + Followers_number)
+        toolbarHeaderView.bindTo(username, "Followers : " + Followers_number)
+        floatHeaderView.bindTo(username, "Followers : " + Followers_number)
     }
 
     override fun onOffsetChanged(appBarLayout: AppBarLayout, offset: Int) {
@@ -405,13 +416,17 @@ class ProfileActivity : AppCompatActivity(), AppBarLayout.OnOffsetChangedListene
                 startActivity(intent)
                 return true
             }
+
+            android.R.id.home->{
+                onBackPressed()
+            }
         }
         return true
     }
 
 
     fun Signout() {
-        mAuth.signOut();
+        mAuth.signOut()
         val intent = Intent(this, MainActivity::class.java)
         startActivity(intent)
     }

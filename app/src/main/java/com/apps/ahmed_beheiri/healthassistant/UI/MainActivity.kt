@@ -2,9 +2,6 @@ package com.apps.ahmed_beheiri.healthassistant.UI
 
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
-import android.content.pm.Signature
 import android.graphics.Bitmap
 import android.net.Uri
 import android.support.v7.app.AppCompatActivity
@@ -27,7 +24,6 @@ import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.DataSnapshot
 import android.provider.MediaStore
-import android.util.Base64
 import com.apps.ahmed_beheiri.healthassistant.Model.UserData
 import com.facebook.*
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -46,8 +42,6 @@ import com.facebook.appevents.AppEventsLogger
 import com.facebook.login.LoginManager
 import com.facebook.login.LoginResult
 import com.google.firebase.auth.*
-import java.security.MessageDigest
-import java.security.NoSuchAlgorithmException
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.LinkedHashMap
@@ -62,7 +56,8 @@ class MainActivity : AppCompatActivity() {
     lateinit var mGooglesignInClient:GoogleSignInClient
     private val RC_SIGN_Google=9001
     lateinit var mCallbackManager: CallbackManager
-    var followers:LinkedHashMap<String,User> = LinkedHashMap()
+    var following:LinkedHashMap<String,User> = LinkedHashMap()
+    var followers:LinkedHashMap<String,String> = LinkedHashMap()
     lateinit var datauser:UserData
 
 
@@ -237,7 +232,7 @@ class MainActivity : AppCompatActivity() {
 
                         var data:Uri= Uri.parse(imageurii)
                         uploadImagetoserver(data,user?.uid)
-                        var myuser=User(email,imageuri.text.toString(),gettingUsernamefromEmail(email.trim()),followers,datauser,getcode())
+                        var myuser=User(email,imageuri.text.toString(),gettingUsernamefromEmail(email.trim()),following,followers,datauser,getcode())
                         databaseref.child(user?.uid).setValue(myuser)
 
                         updateUI(user?.uid)
@@ -362,7 +357,7 @@ class MainActivity : AppCompatActivity() {
                                     if(p0?.hasChild(user?.uid)!!){
                                         updateUI(user?.uid)
                                     }else{
-                                        var myuser=User(user?.email!!,user.photoUrl.toString(),user.displayName!!,followers,datauser,getcode())
+                                        var myuser=User(user?.email!!,user.photoUrl.toString(),user.displayName!!,following,followers,datauser,getcode())
                                         databaseref.child(user?.uid).setValue(myuser)
                                         updateUI(user?.uid)
                                     }
@@ -402,7 +397,7 @@ class MainActivity : AppCompatActivity() {
                                         updateUI(user?.uid)
                                     }else{
 
-                                        var myuser:User= User(user?.email!!,user?.photoUrl.toString(),user?.displayName!!,followers,datauser,getcode())
+                                        var myuser:User= User(user?.email!!,user?.photoUrl.toString(),user?.displayName!!,following,followers,datauser,getcode())
                                         databaseref.child(user?.uid).setValue(myuser)
                                         updateUI(user?.uid)
 

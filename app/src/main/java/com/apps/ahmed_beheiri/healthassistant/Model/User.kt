@@ -5,9 +5,9 @@ package com.apps.ahmed_beheiri.healthassistant.Model
  * Created by ahmed_beheiri on 23/02/18.
  */
 
- data class User(var email:String, var imageuri:String, var username:String, var followers :HashMap<String,User>, var data:UserData, var code :Int) {
+ data class User(var email:String, var imageuri:String, var username:String, var following :HashMap<String,User>, var followers:HashMap<String,String>,var data:UserData, var code :Int) {
 
-    constructor():this (email="",imageuri="", username = "",followers = HashMap<String,User>(),data = UserData(),code = 0)
+    constructor():this (email="",imageuri="", username = "",following = HashMap<String,User>(),data = UserData(),code = 0,followers = HashMap<String,String>())
 
 
 }

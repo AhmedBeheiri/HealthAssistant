@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.support.v7.widget.LinearLayoutManager
 import android.support.v7.widget.RecyclerView
 import com.apps.ahmed_beheiri.healthassistant.Model.User
-import com.apps.ahmed_beheiri.healthassistant.Model.UserData
 import com.apps.ahmed_beheiri.healthassistant.R
 import com.apps.ahmed_beheiri.healthassistant.UI.Adapter.FollowingAdapter
 import com.google.firebase.auth.FirebaseAuth
@@ -15,15 +14,14 @@ import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import kotlinx.android.synthetic.main.activity_following.*
-import kotlinx.android.synthetic.main.card_following.*
 import android.content.DialogInterface
 import android.support.v7.app.AlertDialog
 import android.text.InputType
-import android.text.Layout
 import android.util.Log
 import android.view.*
 import android.widget.EditText
 import android.widget.TextView
+import com.apps.ahmed_beheiri.healthassistant.Model.UserData
 
 
 class FollowingActivity : AppCompatActivity() {
@@ -34,7 +32,8 @@ class FollowingActivity : AppCompatActivity() {
     lateinit var storage:FirebaseStorage
     lateinit var storageReference: StorageReference
 
-    lateinit var followers:LinkedHashMap<String,User>
+    lateinit var following:LinkedHashMap<String,User>
+    lateinit var followers:LinkedHashMap<String,String>
     lateinit var adapter:FollowingAdapter
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,26 +47,37 @@ class FollowingActivity : AppCompatActivity() {
         databaseReference=database.getReference("users").child(user?.uid)
         storage= FirebaseStorage.getInstance()
         storageReference=storage.getReference("users")
+        following= LinkedHashMap()
         followers= LinkedHashMap()
 
         recyclerView.setHasFixedSize(true)
         var layoutManager:LinearLayoutManager= LinearLayoutManager(this)
         recyclerView.layoutManager=layoutManager
         recyclerView.addItemDecoration(VerticalSpaceItemDecorator(10))
-         adapter= FollowingAdapter(followers,this)
+         adapter= FollowingAdapter(following,this)
         recyclerView.adapter=adapter
             databaseReference.addValueEventListener(object:ValueEventListener{
                 override fun onDataChange(value: DataSnapshot?) {
-                    var myuser: User = value?.getValue(User::class.java)!!
-                    var followerssnapshot:DataSnapshot=value.child("followers")
+                    var followerssnapshot:DataSnapshot= value!!.child("following")
                     if(followerssnapshot.exists()){
                         recyclerView.visibility=View.VISIBLE
                         var followerschildren:Iterable<DataSnapshot> =followerssnapshot.children
                         for(follower:DataSnapshot in followerschildren){
+                            var ref:DatabaseReference=database.getReference("users").child(follower.key).child("data")
+                            ref.addListenerForSingleValueEvent(object :ValueEventListener{
+                                override fun onDataChange(p0: DataSnapshot?) {
+                                    databaseReference.child("following").child(follower.key).child("data").setValue(p0?.getValue(UserData::class.java))
+                                }
+
+                                override fun onCancelled(p0: DatabaseError?) {
+
+                                }
+                            })
                             var user:User=follower.getValue(User::class.java)!!
-                            followers.put(follower.key,user)
+                            following.put(follower.key,user)
                             adapter.notifyDataSetChanged()
                         }
+                        errortext.visibility=View.GONE
 
                     }else{
                         recyclerView.visibility=View.GONE
@@ -122,16 +132,15 @@ class FollowingActivity : AppCompatActivity() {
                    var key: String = datasnapShot.key.toString()
                    followeruser = datasnapShot.getValue(User::class.java)!!
                    if (followeruser.code == code.toInt()) {
-                       followers.put(key, followeruser)
+                       following.put(key, followeruser)
+                       followers.put(user?.uid,user.email.toString())
+                       database.getReference("users").child(key).child("followers").setValue(followers)
                        adapter.notifyDataSetChanged()
                    }
                }
 
 
-
-
-
-               databaseReference.child("followers").setValue(followers)
+               databaseReference.child("following").setValue(following)
                Log.d("followersadded","succecful")
                adapter.notifyDataSetChanged()
            }
@@ -193,6 +202,9 @@ class FollowingActivity : AppCompatActivity() {
 
                 builder.show()
 
+            }
+            android.R.id.home ->{
+                onBackPressed()
             }
         }
          return true
