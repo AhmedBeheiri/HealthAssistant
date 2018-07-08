@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.apps.ahmed_beheiri.healthassistant.UI.TransactionActivity">
+    tools:context="com.apps.ahmed_beheiri.healthassistant.UI.TransactionActivity"
+    android:background="@color/backgroundcolor">
 
 </android.support.constraint.ConstraintLayout>

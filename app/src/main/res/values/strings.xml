@@ -2,5 +2,6 @@
     <string name="app_name">HealthAssistant</string>
     <string name="facebook_app_id">220823051991497</string>
     <string name="fb_login_protocol_scheme">fb220823051991497</string>
-
+    <string name="google_client_secret" translatable="false">B-0NWwaFr_OPDfd8MO_wfPGU</string>
+    <string name="share_using">Share your code with</string>
 </resources>

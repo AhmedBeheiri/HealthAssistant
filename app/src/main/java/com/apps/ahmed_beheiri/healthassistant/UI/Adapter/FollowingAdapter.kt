@@ -43,15 +43,15 @@ init {
             itemView.temptext.setText("temperature : ")
             itemView.followerusername.setText(userData.username)
             itemView.heartrate.setText(userData.data.heartrate.toString())
-            if (userData.data.status==1){
-            itemView.status.setText("Angry")
+            if (userData.data.status in 0..50){
+            itemView.status.setText("Unstable")
                 itemView.status.setTextColor(itemView.resources.getColor(android.R.color.holo_red_dark))
             }else{
-                itemView.status.setText("Happy")
+                itemView.status.setText("Stable")
                 itemView.status.setTextColor(itemView.resources.getColor(android.R.color.holo_green_light))
             }
             itemView.temp.setText(userData.data.temp.toString())
-            Picasso.with(context).load(userData.imageuri).placeholder(R.drawable.index).into(itemView.prof_pic)
+            Picasso.with(context).load(userData.imageUri).placeholder(R.drawable.index).resize(140,130).into(itemView.prof_pic)
 
         }
     }

@@ -15,6 +15,7 @@ import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import kotlinx.android.synthetic.main.activity_following.*
 import android.content.DialogInterface
+import android.os.Build
 import android.support.v7.app.AlertDialog
 import android.text.InputType
 import android.util.Log
@@ -22,6 +23,9 @@ import android.view.*
 import android.widget.EditText
 import android.widget.TextView
 import com.apps.ahmed_beheiri.healthassistant.Model.UserData
+import android.R.attr.phoneNumber
+import android.content.Intent
+import com.squareup.picasso.Picasso
 
 
 class FollowingActivity : AppCompatActivity() {
@@ -49,7 +53,8 @@ class FollowingActivity : AppCompatActivity() {
         storageReference=storage.getReference("users")
         following= LinkedHashMap()
         followers= LinkedHashMap()
-
+        Picasso.with(this).load(user.photoUrl).placeholder(R.drawable.index).resize(100,100).into(userimge)
+        usernamefollow.text = MainActivity.gettingUsernamefromEmail(user.email!!)
         recyclerView.setHasFixedSize(true)
         var layoutManager:LinearLayoutManager= LinearLayoutManager(this)
         recyclerView.layoutManager=layoutManager
@@ -91,10 +96,6 @@ class FollowingActivity : AppCompatActivity() {
                 }
             })
 
-        addfolowersbtn.setOnClickListener {
-            addfollowers()
-        }
-
     }
 
 
@@ -107,7 +108,7 @@ class FollowingActivity : AppCompatActivity() {
         input.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         builder.setView(input)
 
-        builder.setPositiveButton("OK", DialogInterface.OnClickListener { dialog, which ->
+        builder.setPositiveButton("ADD", DialogInterface.OnClickListener { dialog, which ->
             m_Text = input.text.toString()
             searchforuser(m_Text)
         })
@@ -126,7 +127,7 @@ class FollowingActivity : AppCompatActivity() {
        userref.addListenerForSingleValueEvent(object :ValueEventListener {
            lateinit var followeruser: User
            override fun onDataChange(value: DataSnapshot?) {
-               Log.d("what is coming", value.toString())
+              // Log.d("what is coming", value.toString())
 
                for (datasnapShot: DataSnapshot in value?.children!!) {
                    var key: String = datasnapShot.key.toString()
@@ -183,9 +184,14 @@ class FollowingActivity : AppCompatActivity() {
                 val builder = AlertDialog.Builder(this)
                 builder.setTitle("Your code is :")
                 val input = TextView(this)
-                input.setTextColor(resources.getColor(android.R.color.black))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    input.setTextColor(resources.getColor(android.R.color.black,resources.newTheme()))
+                }else{
+                    input.setTextColor(resources.getColor(android.R.color.black))
+                }
                 input.setTextSize(18f)
                 input.gravity=Gravity.CENTER
+
                 databaseReference.child("code").addListenerForSingleValueEvent(object :ValueEventListener{
                     override fun onCancelled(p0: DatabaseError?) {
                         Log.d("Database Error",p0?.message)
@@ -197,17 +203,32 @@ class FollowingActivity : AppCompatActivity() {
                 })
 
                 builder.setView(input)
-
+                builder.setPositiveButton("Share",DialogInterface.OnClickListener{dialog, which ->
+                    share(input.text.toString())
+                    dialog.dismiss()
+                })
                 builder.setNegativeButton("Cancel", DialogInterface.OnClickListener { dialog, which -> dialog.cancel() })
 
                 builder.show()
 
+            }
+            R.id.followuser->{
+                addfollowers()
             }
             android.R.id.home ->{
                 onBackPressed()
             }
         }
          return true
+    }
+
+    private fun share(code:String){
+        val shareBody:String = "Hi follow me on Health assistant App using this Code "+code+" to see all my vital Data"
+        val sharingIntent:Intent = Intent(android.content.Intent.ACTION_SEND)
+        sharingIntent.setType("text/plain")
+        sharingIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Subject Here")
+        sharingIntent.putExtra(android.content.Intent.EXTRA_TEXT, shareBody)
+        startActivity(Intent.createChooser(sharingIntent, getResources().getString(R.string.share_using)))
     }
 
 

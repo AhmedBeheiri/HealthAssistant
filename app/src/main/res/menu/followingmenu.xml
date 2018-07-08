@@ -5,5 +5,9 @@
     <item
         android:id="@+id/getcode"
         android:title="Get My Code"
-        app:showAsAction="always" />
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/followuser"
+        android:title="Follow"
+        app:showAsAction="never"/>
 </menu>
